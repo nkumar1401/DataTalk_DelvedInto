@@ -1,0 +1,21 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env/
+.env
+myenv/
+venv/
+venv.bak/
+env/
+
+
+# Streamlit local config
+.streamlit/config.toml
+.streamlit/ 
+secrets.toml
+
+# Data files (optional, depends if you want to host sample data)
+data/raw/*
+data/processed/*
