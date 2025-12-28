@@ -22,3 +22,14 @@ if uploaded_file:
         cleaned_df = clean_dataframe(df)
         st.session_state['df'] = cleaned_df
         st.success("Data cleaned! Navigate to the Dashboard or Chat.")
+# import google.generativeai as genai
+# import streamlit as st
+
+# genai.configure(api_key=st.secrets["GENAI_API_KEY"])
+
+# try:
+#     for m in genai.list_models():
+#         if 'generateContent' in m.supported_generation_methods:
+#             st.write(f"✅ Available Model Name: `{m.name}`")
+# except Exception as e:
+#     st.error(f"Cannot list models: {e}")        

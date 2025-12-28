@@ -1,51 +1,68 @@
-import google.generativeai as genai
 import streamlit as st
 import os
 import re
+from google import genai
+from groq import Groq
 
 def ask_ai(user_query, df):
     """
-    Refined AI Handler: Interprets user query and returns executable Python code.
-    Developed by: Nirmal Kumar Bhagatkar (AI/ML Expert)
+    Multi-LLM Resilience Handler
+    Primary: Gemini 2.0 Flash
+    Fallback: Groq (Llama-3-70b)
     """
-    # 1. API Configuration (Using st.secrets for Streamlit Cloud / .env for Local)
-    api_key = st.secrets.get("GENAI_API_KEY") or os.getenv("GENAI_API_KEY")
+    # 1. Setup API Keys
+    gemini_key = st.secrets.get("GENAI_API_KEY") or os.getenv("GENAI_API_KEY")
+    groq_key = st.secrets.get("groq_API_KEY") or os.getenv("groq_API_KEY")
     
-    if not api_key:
-        st.error("API Key not found. Please set GENAI_API_KEY in secrets.toml or .env file.")
-        return None
-
-    genai.configure(api_key=api_key)
-    
-    # 2. Model Initialization (Using the stable 1.5-flash for speed)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-
-    # 3. Prompt Engineering (Optimized for the project's 'Chat with Data' module)
+    # Common Prompt
     prompt = f"""
-    You are an expert Data Analyst. The dataframe 'df' is already loaded and has columns: {list(df.columns)}.
-    User Query: "{user_query}"
-    
-    Task: Write Python code to answer the query using pandas and plotly.express.
-    Instructions:
-    - If user asks for a calculation or summary: Store the final answer in a variable called 'result'.
-    - If user asks for a chart: Use plotly.express (as px) and assign the chart object to 'fig'.
-    - Return ONLY the raw Python code within ```python ``` blocks.
-    - Do not include any explanations or conversational text.
+    Context: Expert Data Analyst. 
+    Data: 'df' with columns: {list(df.columns)}.
+    Query: "{user_query}"
+    Task: Write Python code using pandas and plotly.express.
+    - Summary calculations: variable 'result'.
+    - Visualizations: plotly.express object 'fig'.
+    - Output format: RAW code inside ```python blocks.
     """
-    
+
+    # --- TRY GEMINI (PRIMARY) ---
     try:
-        response = model.generate_content(prompt)
-        full_text = response.text
-        
-        # 4. Code Extraction using Regular Expressions
-        code_match = re.search(r"```python\n(.*?)```", full_text, re.DOTALL)
-        
-        if code_match:
-            return code_match.group(1).strip()
-        else:
-            # Fallback if the model returns text instead of code
-            return None
-            
+        client_gemini = genai.Client(api_key=gemini_key)
+        response = client_gemini.models.generate_content(
+            model="gemini-2.0-flash", 
+            contents=prompt
+        )
+        return extract_code(response.text)
+
     except Exception as e:
-        st.error(f"Error connecting to Gemini: {str(e)}")
-        return None
+        # Check if error is Quota Exhausted (429)
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            st.warning("⚠️ Gemini Quota Exhausted. Switching to Groq Infrastructure...")
+            
+            # --- TRY GROQ (FALLBACK) ---
+            try:
+                if not groq_key:
+                    st.error("Groq API Key missing. Cannot failover.")
+                    return None
+                
+                client_groq = Groq(api_key=groq_key)
+                completion = client_groq.chat.completions.create(
+                    model="llama-3.3-70b-versatile", # Reliable Groq model
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1 # Low temperature for accurate code
+                )
+                return extract_code(completion.choices[0].message.content)
+            
+            except Exception as groq_err:
+                st.error(f"Critical System Failure: {groq_err}")
+                return None
+        else:
+            st.error(f"⚡ Connection Error: {str(e)}")
+            return None
+
+def extract_code(text):
+    """Helper to pull Python code from markdown blocks"""
+    code_match = re.search(r"```python\n(.*?)```", text, re.DOTALL)
+    if code_match:
+        return code_match.group(1).strip()
+    return None
