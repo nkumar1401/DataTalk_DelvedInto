@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from src.processor import clean_dataframe
+from src.processor import auto_clean_data
 
 st.set_page_config(page_title="DataTalk AI", layout="wide")
 
@@ -19,7 +19,7 @@ if uploaded_file:
     st.write("### Data Preview", df.head())
     
     if st.button("Clean Data & Proceed"):
-        cleaned_df = clean_dataframe(df)
+        cleaned_df = auto_clean_data(df)
         st.session_state['df'] = cleaned_df
         st.success("Data cleaned! Navigate to the Dashboard or Chat.")
 # import google.generativeai as genai

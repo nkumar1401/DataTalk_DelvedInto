@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from src.processor import clean_dataframe
+from src.processor import auto_clean_data
 from sklearn import datasets
 
 st.set_page_config(page_title="Data Source - DataTalk", layout="wide")
@@ -71,7 +71,7 @@ if 'raw_df' in st.session_state:
     if st.button("Run Automated Cleaning"):
         with st.spinner("Executing architecture-level cleaning (Imputation & IQR)..."):
             # 1. Clean the data using your src/processor.py logic
-            cleaned_df = clean_dataframe(raw_data)
+            cleaned_df = auto_clean_data(raw_data)
             
             # 2. CRITICAL: Store in 'df'. This is the variable used by Dashboard and Viz pages.
             st.session_state['df'] = cleaned_df
@@ -80,5 +80,5 @@ if 'raw_df' in st.session_state:
             st.balloons()
             
             # Show a button to jump to the next step
-            if st.button("Go to Dashboard 📊"):
-                st.switch_page("pages/2_Dashboard.py")
+    if st.button("Go to Dashboard 📊"):
+            st.switch_page("pages/Dashboard.py")

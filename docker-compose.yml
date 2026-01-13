@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  datatalk-app:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - groq_API_KEY=${groq_API_KEY} # Add this line so Groq fallback works in Docker
+    volumes:
+      - .:/app
+    restart: always

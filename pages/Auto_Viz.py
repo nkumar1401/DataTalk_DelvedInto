@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from src.processor import clean_dataframe
+from src.processor import auto_clean_data
 
 st.set_page_config(page_title="Auto Visualizations", layout="wide")
 
@@ -71,4 +71,4 @@ if 'df' in st.session_state:
 else:
     st.warning("⚠️ No dataset detected. Please navigate to the 'Upload Dataset' page to start.")
     if st.button("Go to Upload Page"):
-        st.switch_page("pages/1_Upload.py")
+        st.switch_page("pages/Upload.py")

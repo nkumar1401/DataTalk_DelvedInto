@@ -1,62 +1,74 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from src.llm_handler import ask_ai  # Importing your refined AI brain
+from src.llm_handler import ask_ai 
+from src.executor import execute_llm_code
 
-st.set_page_config(page_title="Chat with Data", layout="wide")
+st.set_page_config(page_title="DataTalk Intelligence", layout="wide")
 
-def execute_llm_code(code, df):
-    """Safely executes code with access to Pandas and Plotly."""
-    try:
-        # Include px so the LLM can generate charts successfully
-        local_vars = {'df': df, 'pd': pd, 'px': px} 
-        exec(code, {}, local_vars)
+# --- 1. INITIALIZE SESSION STATE ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if 'last_suggestions' not in st.session_state:
+    st.session_state.last_suggestions = []
+if 'active_prompt' not in st.session_state:
+    st.session_state.active_prompt = None
+
+# --- 2. GLOBAL DATA SYNC ---
+active_df = st.session_state.get('df')
+
+# --- 3. UI HEADER ---
+st.title("💬 DataTalk: Autonomous Insights")
+
+# --- 4. CHAT DISPLAY ---
+# This ensures previous answers and graphs stay visible
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
+        if "code" in message and message["code"]:
+            # Re-run the visual code so the graph stays on screen
+            data_to_analyze = {"Uploaded_Data": active_df}
+            execute_llm_code(message["code"], data_to_analyze)
+
+# --- 5. PREDICTIVE FOLLOW-UPS ---
+if st.session_state.last_suggestions:
+    st.markdown("🔍 **Predictive Follow-ups:**")
+    cols = st.columns(len(st.session_state.last_suggestions))
+    for i, sugg in enumerate(st.session_state.last_suggestions):
+        if cols[i].button(sugg, key=f"sugg_{i}_{len(st.session_state.messages)}"):
+            st.session_state.active_prompt = sugg
+            st.rerun()
+
+# --- 6. USER INPUT ---
+user_text = st.chat_input("Ask about patterns, averages, or trends...")
+
+# --- 7. LOGIC EXECUTION ---
+final_query = st.session_state.get('active_prompt') or user_text
+
+if final_query:
+    # Reset active prompt to prevent loops
+    st.session_state.active_prompt = None 
+    
+    # Add user message to history
+    st.session_state.messages.append({"role": "user", "content": final_query})
+    
+    # Process Response
+    if active_df is None:
+        st.warning("Please upload data first!")
+    else:
+        data_to_analyze = {"Uploaded_Data": active_df}
         
-        # Priority 1: Visualization, Priority 2: Text Result
-        return local_vars.get('result', ""), local_vars.get('fig', None)
-    except Exception as e:
-        return f"⚠️ Logic Error: {e}", None
-
-if 'df' in st.session_state:
-    df = st.session_state['df']
-    st.title("💬 Chat with DataTalk")
-    st.info("Example: 'Show me a bar chart of survival rate by class' or 'What is the median age?'")
-
-    # Chat history UI for better user experience
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            if message.get("fig"):
-                st.plotly_chart(message["fig"])
-
-    # Handle new input
-    if prompt := st.chat_input("Ask about your dataset..."):
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
-
-        with st.spinner("Gemini is thinking..."):
-            # Use the refined logic from your src folder
-            code = ask_ai(prompt, df)
-            
-            if code:
-                ans, fig = execute_llm_code(code, df)
-                
-                with st.chat_message("assistant"):
-                    if ans: st.write(ans)
-                    if fig: st.plotly_chart(fig)
-                
-                # Save to history
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": str(ans), 
-                    "fig": fig
-                })
-            else:
-                st.error("I couldn't generate code for that query. Please try rephrasing.")
-else:
-    st.error("No dataset found. Please upload a file on the Home page first.")
+        # Get AI Response
+        with st.spinner("Analyzing..."):
+            code, suggestions, response_text = ask_ai(final_query, data_to_analyze)
+        
+        # Update suggestions for next turn
+        st.session_state.last_suggestions = suggestions
+        
+        # SAVE AND RENDER IMMEDIATELY
+        # We append to history first, then rerun to trigger the 'Chat Display' section
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": response_text,
+            "code": code 
+        })
+        st.rerun()
