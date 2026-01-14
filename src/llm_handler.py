@@ -116,6 +116,7 @@ def ask_ai(user_query, data_lake):
         client_gemini = genai.Client(api_key=gemini_key)
         response = client_gemini.models.generate_content(
             model="gemini-2.0-flash",
+            # model="gemini-3-flash-preview",
             contents=prompt
         )
         return extract_code_and_suggestions(response.text)
